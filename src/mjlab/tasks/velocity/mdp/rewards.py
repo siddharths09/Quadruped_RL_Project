@@ -268,6 +268,24 @@ def feet_slip(
   env.extras["log"]["Metrics/slip_velocity_mean"] = mean_slip_vel
   return cost
 
+def log_fl_foot_pos_traj(
+  env: ManagerBasedRlEnv,
+  asset_cfg: SceneEntityCfg,
+  env_index: int = 0,
+  prefix: str = "Traj/FL_foot_pos_w",
+):
+  asset: Entity = env.scene[asset_cfg.name]
+
+  p = asset.data.site_pos_w[:, asset_cfg.site_ids, :]
+
+  fl_pos = p[:, 0, :] 
+
+  env.extras.setdefault("log", {})
+  env.extras["log"][f"{prefix}/x_env{env_index}"] = fl_pos[env_index, 0]
+  env.extras["log"][f"{prefix}/y_env{env_index}"] = fl_pos[env_index, 1]
+  env.extras["log"][f"{prefix}/z_env{env_index}"] = fl_pos[env_index, 2]
+
+  return fl_pos
 
 def soft_landing(
   env: ManagerBasedRlEnv,

@@ -390,6 +390,16 @@ def create_velocity_env_cfg(
         "asset_cfg": SceneEntityCfg("robot", site_names=site_names),
       },
     ),
+    "fl_foot_pos_traj": RewardTermCfg(
+    func=mdp.log_fl_foot_pos_traj,
+    weight=0.0,  # IMPORTANT: logs only, doesn't change optimization
+    params={
+      "asset_cfg": SceneEntityCfg("robot", site_names=("FL",), preserve_order=True),
+      "env_index": 0,
+      "prefix": "Traj/FL_foot_pos_w",
+    },
+  ),
+
     # Hint: Consider adding the following gait-related rewards:
     # 1. foot_clearance with mdp.feet_clearance
     # 2. foot_swing_height with mdp.feet_swing_height
