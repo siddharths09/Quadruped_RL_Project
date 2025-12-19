@@ -188,7 +188,7 @@ def create_backflip_env_cfg(
         # --- Main Objectives: Track desired height and pitch ---
         "track_height": RewardTermCfg(
             func=mdp.track_base_height,
-            weight=2.0,
+            weight=5.0,
             params={
                 "std": 0.3,
                 "command_name": "backflip",
@@ -197,7 +197,7 @@ def create_backflip_env_cfg(
         ),
         "track_pitch": RewardTermCfg(
             func= mdp.track_base_pitch,
-            weight=2.0,
+            weight=5.0,
             params={
                 "std": 0.5,
                 "command_name": "backflip",
@@ -209,6 +209,18 @@ def create_backflip_env_cfg(
         "action_rate": RewardTermCfg(
             func=velocity_mdp.action_rate_l2,
             weight=-0.01,
+        ),
+
+        # --- Incentivize In Air ---
+        "feet_airborne": RewardTermCfg(
+            func=mdp.feet_airborne,
+            weight=3.5,
+            params={
+                "sensor_name": feet_sensor_cfg.name,
+                "command_name": "backflip",
+                "start_phase": 0.2,
+                "end_phase": 0.8,
+            },
         ),
 
         # --- Landing bonus ---

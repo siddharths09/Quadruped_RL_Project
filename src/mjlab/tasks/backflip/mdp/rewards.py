@@ -9,6 +9,8 @@ from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.sensor import ContactSensor
 from mjlab.third_party.isaaclab.isaaclab.utils.math import euler_xyz_from_quat
 
+import math
+
 if TYPE_CHECKING:
   from mjlab.envs import ManagerBasedRlEnv
 
@@ -149,12 +151,15 @@ def landing_success_bonus(
     roll = euler[0]
     
     upright = (torch.abs(pitch) < 0.3) & (torch.abs(roll) < 0.3)
+
+    #check if rotation happened
+    did_invert = (torch.abs(torch.abs(pitch) - math.pi) < 0.7)
     
     # Check if at correct height
     actual_height = asset.data.root_link_pos_w[:, 2]
     at_correct_height = torch.abs(actual_height - 0.35) < 0.1
     
     # Bonus if upright and at correct height near end
-    success = upright.float() * near_end
+    success = upright.float() * near_end * did_invert.float()
     
     return success
