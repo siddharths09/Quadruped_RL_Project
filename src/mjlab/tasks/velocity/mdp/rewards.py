@@ -8,7 +8,7 @@ from mjlab.entity import Entity
 from mjlab.managers.manager_term_config import RewardTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.sensor import BuiltinSensor, ContactSensor
-from mjlab.third_party.isaaclab.isaaclab.utils.math import quat_apply_inverse
+from mjlab.third_party.isaaclab.isaaclab.utils.math import quat_apply_inverse, euler_xyz_from_quat
 from mjlab.third_party.isaaclab.isaaclab.utils.string import (
   resolve_matching_names_values,
 )

@@ -13,3 +13,5 @@ motions/
 artifacts/
 .venv/
 render_robots.py
+.DS_Store
+*.zip
