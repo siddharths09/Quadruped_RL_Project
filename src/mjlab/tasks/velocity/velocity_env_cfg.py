@@ -204,6 +204,17 @@ def create_velocity_env_cfg(
     # ---------------------------------------------------------------------------
     # TODO(b): add extra observations for the critic here.
     # Hint: Consider gait information such as foot contact, air time, or height.
+    "foot_height": ObservationTermCfg(
+      func=mdp.foot_height,
+    ),
+    "foot_air_time": ObservationTermCfg(
+      func=mdp.foot_air_time,
+      params={"sensor_name": feet_sensor_cfg.name},
+    ),
+    "foot_contact": ObservationTermCfg(
+      func=mdp.foot_contact,
+      params={"sensor_name": feet_sensor_cfg.name},
+    ),
   }
 
   observations = {
@@ -348,13 +359,43 @@ def create_velocity_env_cfg(
     # i.e. you can observe significant feet dragging and sometimes slipping. 
     # These all create sim-to-real gap because where the robot's feet contact the ground is not perfectly simulated.
     # Thus, we design gait rewards to encourage feet clearance (so that the feet lift sufficiently during walking to avoid dragging) and penalize foot slip.
-
+    "feet_clearance": RewardTermCfg(
+      func=mdp.feet_clearance,
+      weight=-2.0,
+      params={
+        "target_height": 0.1,
+        "command_name": "twist",
+        "command_threshold": 0.05,
+        "asset_cfg": SceneEntityCfg("robot", site_names=site_names),
+      },
+    ),
+    "swing_height": RewardTermCfg(
+      func=mdp.feet_swing_height,
+      weight=-0.25,
+      params={
+        "target_height": 0.1,
+        "sensor_name": feet_sensor_cfg.name,
+        "command_name": "twist",
+        "command_threshold": 0.05,
+        "asset_cfg": SceneEntityCfg("robot", site_names=site_names),
+      },
+    ),
+    "feet_slip": RewardTermCfg(
+      func=mdp.feet_slip,
+      weight=-0.1,
+      params={
+        "sensor_name": feet_sensor_cfg.name,
+        "command_name": "twist",
+        "command_threshold": 0.01,
+        "asset_cfg": SceneEntityCfg("robot", site_names=site_names),
+      },
+    ),
     # Hint: Consider adding the following gait-related rewards:
     # 1. foot_clearance with mdp.feet_clearance
     # 2. foot_swing_height with mdp.feet_swing_height
     # 3. foot_slip with mdp.feet_slip
     }
-
+  
   # ---------------------------------------------------------------------------
   # Part2 (e) Writing terminations
   # ---------------------------------------------------------------------------
