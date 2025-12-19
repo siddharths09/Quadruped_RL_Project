@@ -123,7 +123,20 @@ def create_velocity_env_cfg(
   # The task is to track a desired linear and yaw velocity (twist).
   # Hint: use a `UniformVelocityCommandCfg`.
   commands: dict[str, CommandTermCfg] = {
-    "twist": UniformVelocityCommandCfg()
+    "twist": UniformVelocityCommandCfg(
+      asset_name="robot",
+      resampling_time_range=(3.0, 8.0),
+      heading_command=True,
+      heading_control_stiffness=1.0,
+      rel_standing_envs=0.1,
+      rel_heading_envs=0.3,
+      ranges=UniformVelocityCommandCfg.Ranges(
+        lin_vel_x=(-1.0, 1.0),
+        lin_vel_y=(-1.0, 1.0),
+        ang_vel_z=(-1.0, 1.0),
+        heading=(-math.pi, math.pi),
+      ),
+    )
   }
 
   # ---------------------------------------------------------------------------
@@ -134,15 +147,58 @@ def create_velocity_env_cfg(
   # joint positions/velocities, last actions, and the command.
   # Joint positions are provided as a reference. 
   policy_terms: dict[str, ObservationTermCfg] = {
+    "base_lin_vel": ObservationTermCfg(
+      func=mdp.base_lin_vel,
+      noise=Unoise(n_min=-0.5, n_max=0.5),
+    ),
+    "base_ang_vel": ObservationTermCfg(
+      func=mdp.base_ang_vel,
+      noise=Unoise(n_min=-0.2, n_max=0.2),
+    ),
+    "projected_gravity": ObservationTermCfg(
+      func=mdp.projected_gravity,
+      noise=Unoise(n_min=-0.05, n_max=0.05),
+    ),
     "joint_pos": ObservationTermCfg(
       func=mdp.joint_pos_rel,
       noise=Unoise(n_min=-0.01, n_max=0.01), # Define sensor noise range
     ),
-    ........... # add more terms here
+    "joint_vel": ObservationTermCfg(
+      func=mdp.joint_vel_rel,
+      noise=Unoise(n_min=-1.5, n_max=1.5),
+    ),
+    "velocity_command": ObservationTermCfg(
+      func=mdp.generated_commands,
+      params={"command_name": "twist"},
+    ),
+    "last_action": ObservationTermCfg(
+      func=mdp.last_action,
+    ),
   }
 
   critic_terms = {
-    **policy_terms,
+    "base_lin_vel": ObservationTermCfg(
+      func=mdp.base_lin_vel,
+    ),
+    "base_ang_vel": ObservationTermCfg(
+      func=mdp.base_ang_vel,
+    ),
+    "projected_gravity": ObservationTermCfg(
+      func=mdp.projected_gravity,
+    ),
+    "joint_pos": ObservationTermCfg(
+      func=mdp.joint_pos_rel, 
+    ),
+    "joint_vel": ObservationTermCfg(
+      func=mdp.joint_vel_rel, 
+    ),
+    "velocity_command": ObservationTermCfg(
+      func=mdp.generated_commands,
+      params={"command_name": "twist"},
+    ),
+    "last_action": ObservationTermCfg(
+      func=mdp.last_action, 
+    ),
     # ---------------------------------------------------------------------------
     # Part3 (b) Writing asymmetric critic -- extra critic observations
     # ---------------------------------------------------------------------------
@@ -154,12 +210,12 @@ def create_velocity_env_cfg(
     "policy": ObservationGroupCfg(
       terms=policy_terms,
       concatenate_terms=True,
-      enable_corruption=??????,
+      enable_corruption=True,
     ),
     "critic": ObservationGroupCfg(
       terms=critic_terms,
       concatenate_terms=True,
-      enable_corruption=?????, 
+      enable_corruption=False, 
     ),
   }
 
@@ -195,19 +251,25 @@ def create_velocity_env_cfg(
     # (1) Randomize the ground friction of the feet using `mdp.randomize_field`.
     "foot_friction": EventTermCfg(
       mode="startup",
-      func=,
+      func=mdp.randomize_field,
       domain_randomization=True,
-      params={},
+      params={
+        "field": "geom_friction",
+        "ranges": (0.3, 1.2),
+        "asset_cfg": SceneEntityCfg("robot", geom_names=foot_friction_geom_names),
+      },
     ),
 
 
 
     # (2) Add random velocity perturbations to the base to learn recovery behaviorusing `mdp.push_by_setting_velocity`.
     "push_robot": EventTermCfg(
-      func=,
+      func=mdp.push_by_setting_velocity,
       mode="interval",
       interval_range_s=(1.0, 3.0),
-      params={},
+      params={
+        "velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5),},
+      },
     ),
   }
 
@@ -222,14 +284,22 @@ def create_velocity_env_cfg(
     # Hint: track commanded linear and angular velocity.
 
     "track_linear_velocity": RewardTermCfg(
-      func=,
+      func=mdp.track_linear_velocity,
       weight=2.0,
-      params={},
+      params={
+        "std": 0.5,
+        "command_name": "twist",
+        "asset_cfg": SceneEntityCfg("robot"),
+      },
     ),
     "track_angular_velocity": RewardTermCfg(
-      func=,
+      func=mdp.track_angular_velocity,
       weight=2.0,
-      params={},
+      params={
+        "std": 0.5,
+        "command_name": "twist",
+        "asset_cfg": SceneEntityCfg("robot"),
+      },
     ),
 
     # -------------------------------------------------------------------------
@@ -242,27 +312,33 @@ def create_velocity_env_cfg(
     # 2. penalizing large deviations from default joint positions
 
     "upright": RewardTermCfg(
-      func=,
+      func=mdp.flat_orientation,
       weight=1.0,
       params={
+        "std": math.sqrt(0.2),
+        "asset_cfg": SceneEntityCfg(name="robot", body_names="trunk")
       },
     ),
     "default_joint_pos": RewardTermCfg(
-      func=,
+      func=mdp.default_joint_position,
       weight=-0.1,
       params={
+        "asset_cfg": SceneEntityCfg("robot", joint_names=(".*",)),
       },
     ),
     # To prevent reaching physical limits and encourage smooth actions, consider adding terms such as:
     # 3. penalizing norm of action rate
     # 4. penalizing reaching the joint position limits
     "action_rate": RewardTermCfg(
-      func=, 
+      func=mdp.action_rate_l2, 
       weight=-0.1
     ),
     "dof_pos_limits": RewardTermCfg(
-      func=, 
-      weight=-1.0
+      func=mdp.joint_pos_limits, 
+      weight=-1.0,
+      params={
+        "asset_cfg": SceneEntityCfg("robot", joint_names=(".*",)),
+      },
     ),
     # -------------------------------------------------------------------------
     # Part3 (a) Writing gait terms
@@ -277,7 +353,7 @@ def create_velocity_env_cfg(
     # 1. foot_clearance with mdp.feet_clearance
     # 2. foot_swing_height with mdp.feet_swing_height
     # 3. foot_slip with mdp.feet_slip
-  }
+    }
 
   # ---------------------------------------------------------------------------
   # Part2 (e) Writing terminations
@@ -291,9 +367,12 @@ def create_velocity_env_cfg(
       time_out=True,
     ),
     "fell_over": TerminationTermCfg(
-      func=,
+      func=mdp.bad_orientation,
       time_out=False,
-      params={},
+      params={
+        "limit_angle": math.radians(60.0),
+        "asset_cfg": SceneEntityCfg("robot"),
+      },
     ),
   }
 
