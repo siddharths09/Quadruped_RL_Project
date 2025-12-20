@@ -204,17 +204,7 @@ def create_velocity_env_cfg(
     # ---------------------------------------------------------------------------
     # TODO(b): add extra observations for the critic here.
     # Hint: Consider gait information such as foot contact, air time, or height.
-    "foot_height": ObservationTermCfg(
-      func=mdp.foot_height,
-    ),
-    "foot_air_time": ObservationTermCfg(
-      func=mdp.foot_air_time,
-      params={"sensor_name": feet_sensor_cfg.name},
-    ),
-    "foot_contact": ObservationTermCfg(
-      func=mdp.foot_contact,
-      params={"sensor_name": feet_sensor_cfg.name},
-    ),
+
   }
 
   observations = {

@@ -224,7 +224,7 @@ def create_backflip_env_cfg(
         # --- Incentivize In Air ---
         "feet_airborne": RewardTermCfg(
             func=mdp.feet_airborne,
-            weight=6.0,
+            weight=10.0,
             params={
                 "sensor_name": feet_sensor_cfg.name,
                 "command_name": "backflip",

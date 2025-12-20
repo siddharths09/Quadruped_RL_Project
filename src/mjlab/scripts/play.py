@@ -201,6 +201,8 @@ def run_play(task: str, cfg: PlayConfig):
     )
 
   env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
+
+  
   if DUMMY_MODE:
     action_shape: tuple[int, ...] = env.unwrapped.action_space.shape  # type: ignore
     if cfg.agent == "zero":
@@ -231,6 +233,59 @@ def run_play(task: str, cfg: PlayConfig):
     runner.load(str(resume_path), map_location=device)
     policy = runner.get_inference_policy(device=device)
 
+  #ADDED   
+  import mujoco
+
+  records = {"fl_foot_x": [], "fl_foot_y": [], "fl_foot_z": []}
+  orig_policy = policy
+  fl_site_id = None
+
+  def _get_mj_model(base_env):
+    for obj in (base_env, getattr(base_env, "sim", None), getattr(base_env, "_sim", None), getattr(base_env, "scene", None)):
+      if obj is None:
+        continue
+      for attr in ("mj_model", "model", "m"):
+        if hasattr(obj, attr):
+          return getattr(obj, attr)
+    return None
+
+  def _get_mj_data(base_env):
+    for obj in (base_env, getattr(base_env, "sim", None), getattr(base_env, "_sim", None), getattr(base_env, "scene", None)):
+      if obj is None:
+        continue
+      for attr in ("mj_data", "data", "d"):
+        if hasattr(obj, attr):
+          return getattr(obj, attr)
+    return None
+
+  def recording_policy(obs):
+    nonlocal fl_site_id
+
+    with torch.no_grad():
+      action = orig_policy(obs)
+
+    base_env = env.unwrapped
+    m = _get_mj_model(base_env)
+    d = _get_mj_data(base_env)
+    if m is None or d is None:
+      raise RuntimeError("Couldn't access MuJoCo model/data to read FL site position.")
+
+    if fl_site_id is None:
+      fl_site_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_SITE, "robot/FL")
+      if fl_site_id < 0:
+        raise RuntimeError("MuJoCo model has no site named 'robot/FL'.")
+
+    p = d.site_xpos[fl_site_id]  # (3,) world position
+    records["fl_foot_x"].append(float(p[0]))
+    records["fl_foot_y"].append(float(p[1]))
+    records["fl_foot_z"].append(float(p[2]))
+
+    return action
+
+  policy = recording_policy
+
+
+
   # Handle "auto" viewer selection.
   if cfg.viewer == "auto":
     has_display = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
@@ -245,6 +300,13 @@ def run_play(task: str, cfg: PlayConfig):
     ViserPlayViewer(env, policy).run()
   else:
     raise RuntimeError(f"Unsupported viewer backend: {resolved_viewer}")
+
+
+  import numpy as np
+
+  out_file = "left_foot_tracking_eval.npz"
+  np.savez(out_file, **records)
+  print(f"[INFO] Saved velocity tracking data to {out_file}")
 
   env.close()
 

@@ -202,17 +202,41 @@ def inverted_midflip(
     asset_cfg: SceneEntityCfg,
     start_phase: float = 0.35,
     end_phase: float = 0.65,
+    z_thresh: float = 0.2, 
 ) -> torch.Tensor:
     asset: Entity = env.scene[asset_cfg.name]
     cmd = env.command_manager.get_command(command_name)
     phase = cmd[:, 0]
     quat = asset.data.root_link_quat_w
-    _, pitch, _ = euler_xyz_from_quat(quat)  
-    target = torch.pi * torch.ones_like(pitch)
 
-    err = torch.atan2(torch.sin(torch.abs(pitch) - target),
-                      torch.cos(torch.abs(pitch) - target))
-    score = torch.exp(-(err * err) / (std ** 2))
+    qw, qx, qy, qz = quat[:, 0], quat[:, 1], quat[:, 2], quat[:, 3]
+    gbz = -1.0 + 2.0 * (qx * qx + qy * qy)
+
+    score = torch.clamp((gbz - z_thresh) / (1.0 - z_thresh), 0.0, 1.0)
 
     active = ((phase >= start_phase) & (phase <= end_phase)).float()
     return score * active
+
+
+def angular_vel_pitch(
+      env,
+      command_name: str,
+      asset_cfg: SceneEntityCfg,
+      start_phase: float=0.2,
+      end_phase: float=0.8,
+      target_rate: float= -10, #??? idk
+      std: float = 5.0,
+) -> torch.Tensor:
+    asset: Entity = env.scene[asset_cfg.name]
+    command = env.command_manager.get_command(command_name)
+    assert command is not None, f"Command '{command_name}' not found."
+
+    phase = command[:,0]
+    active = ((phase>=start_phase) & (phase<=end_phase)).to(torch.float32)
+
+    ang_vel =  asset.data.root_link_ang_vel_w
+    pitch_rate  = ang_vel[:, 1]
+
+    err = pitch_rate - target_rate
+    return torch.exp(-(err*err)/std**2)* active
+   
