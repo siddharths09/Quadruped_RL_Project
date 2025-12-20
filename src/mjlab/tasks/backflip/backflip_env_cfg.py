@@ -224,12 +224,24 @@ def create_backflip_env_cfg(
         # --- Incentivize In Air ---
         "feet_airborne": RewardTermCfg(
             func=mdp.feet_airborne,
-            weight=3.5,
+            weight=6.0,
             params={
                 "sensor_name": feet_sensor_cfg.name,
                 "command_name": "backflip",
                 "start_phase": 0.2,
                 "end_phase": 0.8,
+            },
+        ),
+
+        "flips": RewardTermCfg(
+            func=mdp.inverted_midflip,
+            weight=3.0,
+            params={
+                "std": 0.5,
+                "command_name": "backflip",
+                "asset_cfg": SceneEntityCfg("robot"),
+                "start_phase": 0.35,
+                "end_phase": 0.65,
             },
         ),
 

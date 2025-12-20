@@ -194,3 +194,25 @@ def landing_success_bonus(
     success = upright.float() * near_end * did_invert.float()
     
     return success
+
+def inverted_midflip(
+    env,
+    std: float,
+    command_name: str,
+    asset_cfg: SceneEntityCfg,
+    start_phase: float = 0.35,
+    end_phase: float = 0.65,
+) -> torch.Tensor:
+    asset: Entity = env.scene[asset_cfg.name]
+    cmd = env.command_manager.get_command(command_name)
+    phase = cmd[:, 0]
+    quat = asset.data.root_link_quat_w
+    _, pitch, _ = euler_xyz_from_quat(quat)  
+    target = torch.pi * torch.ones_like(pitch)
+
+    err = torch.atan2(torch.sin(torch.abs(pitch) - target),
+                      torch.cos(torch.abs(pitch) - target))
+    score = torch.exp(-(err * err) / (std ** 2))
+
+    active = ((phase >= start_phase) & (phase <= end_phase)).float()
+    return score * active
