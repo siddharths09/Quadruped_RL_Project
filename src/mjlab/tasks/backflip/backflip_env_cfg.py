@@ -197,7 +197,17 @@ def create_backflip_env_cfg(
         ),
         "track_pitch": RewardTermCfg(
             func= mdp.track_base_pitch,
-            weight=5.0,
+            weight=6.5,
+            params={
+                "std": 0.3,
+                "command_name": "backflip",
+                "asset_cfg": SceneEntityCfg("robot"),
+            },
+        ),
+
+        "track_yaw_end": RewardTermCfg(
+            func= mdp.track_base_yaw,
+            weight=1.0,
             params={
                 "std": 0.5,
                 "command_name": "backflip",

@@ -112,10 +112,41 @@ def track_base_pitch(
     # Get actual pitch from quaternion
     quat = asset.data.root_link_quat_w
     euler = euler_xyz_from_quat(quat)
-    actual_pitch = euler[1]  # Pitch is the y-axis rotation
+    _, actual_pitch, _ = euler_xyz_from_quat(quat)   # Pitch is the y-axis rotation
     
-    pitch_error = torch.square(actual_pitch - desired_pitch)
+    err = torch.atan2(torch.sin(actual_pitch - desired_pitch),
+                      torch.cos(actual_pitch - desired_pitch))
+
+    pitch_error = err * err
     return torch.exp(-pitch_error / std**2)
+
+def track_base_yaw(
+    env,
+    std: float,
+    command_name: str,
+    asset_cfg: SceneEntityCfg,
+) -> torch.Tensor:
+    """Reward tracking desiredyaw angle at end of flip."""
+    asset: Entity = env.scene[asset_cfg.name]
+    command = env.command_manager.get_command(command_name)
+    assert command is not None, f"Command '{command_name}' not found."
+    
+    phase = command[:, 0]
+    desired_yaw = torch.zeros_like(phase) 
+    
+    # Get actual pitch from quaternion
+    quat = asset.data.root_link_quat_w
+    euler = euler_xyz_from_quat(quat)
+    _, _, actual_yaw = euler_xyz_from_quat(quat) 
+    
+    err = torch.atan2(
+        torch.sin(actual_yaw - desired_yaw),
+        torch.cos(actual_yaw - desired_yaw),
+    )
+    yaw_error = err * err
+    active = (phase >= 0.8).to(dtype=torch.float32) 
+    
+    return torch.exp(-yaw_error / std**2) * active
 
 
 def joint_velocity_penalty(

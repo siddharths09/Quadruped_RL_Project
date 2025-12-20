@@ -29,7 +29,7 @@ class BackflipCommandCfg(CommandTermCfg):
     
     # Height trajectory parameters
     initial_height: float = 0.35  # Starting height (m)
-    jump_height: float = 0.6     # Peak height during flip (m)
+    jump_height: float = 1.0    # Peak height during flip (m)
     landing_height: float = 0.35  # Target landing height (m)
     
     # Pitch trajectory parameters (in radians)
